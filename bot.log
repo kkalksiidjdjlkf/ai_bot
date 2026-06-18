@@ -441,3 +441,8 @@
 2026-06-17 20:08:40,686 [INFO] Bot initialized: session=test2
 2026-06-17 20:08:40,686 [INFO] Bot initialized: session=test
 2026-06-17 20:08:40,686 [INFO] Bot initialized: session=test2
+2026-06-18 15:20:54,782 [INFO] Bot initialized: session=terminal
+2026-06-18 15:21:09,102 [INFO] Session terminal: dialog reset
+2026-06-18 15:52:03,916 [INFO]  * Detected change in '/Users/maks/Desktop/борас  проект/terminal_bot.py', reloading
+2026-06-18 16:01:21,136 [INFO] Bot initialized: session=terminal
+2026-06-18 16:01:24,500 [INFO] Bot initialized: session=terminal
