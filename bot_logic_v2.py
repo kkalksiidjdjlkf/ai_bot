@@ -426,18 +426,14 @@ class MedicalBot:
             doctor=doctor,
         )
         self.reset()
-
         if booking_id is None:
             return (f"К сожалению, на {date} в {time_slot} уже есть запись. "
                     "Пожалуйста, выберите другое время.")
-
         logger.info(f"Booking confirmed: id={booking_id}, patient={patient_name}, service={service_name}")
         return get_random(BOOKING_SUCCESS)
-
     def _transfer_to_operator(self, message: str) -> str:
         clinic = get_clinic()
         return get_random(OPERATOR_TRANSFER).format(phone=clinic["phones"][0])
-
     def get_greeting(self) -> str:
         clinic = get_clinic()
         clinic_name = clinic.get("name", "Nomad Clinic")
