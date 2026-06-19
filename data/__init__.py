@@ -107,10 +107,10 @@ class DataStore:
         for symptom, svc in self._symptom_map.items():
             if symptom in keyword_lower:
                 return svc
-        # Затем по ключевым словам (длиннее 3 символов)
+        # Затем по ключевым словам (длиннее 2 символов)
         for svc in self._services.values():
             for kw in svc.get("keywords", []):
-                if len(kw) >= 3 and kw in keyword_lower:
+                if len(kw) >= 2 and kw in keyword_lower:
                     return svc
         return None
 

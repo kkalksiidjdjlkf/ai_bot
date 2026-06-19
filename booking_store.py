@@ -10,7 +10,7 @@ import uuid
 from datetime import datetime
 from typing import Dict, List, Optional
 
-_DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
+_DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 _BOOKINGS_FILE = os.path.join(_DATA_DIR, "bookings.json")
 
 
