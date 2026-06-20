@@ -7,12 +7,8 @@ import os
 import uuid
 from datetime import datetime
 from typing import Dict, List, Optional
-<<<<<<< HEAD
 
 _DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
-=======
-_DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
->>>>>>> 46b6d94760126aba4d294eb4ebb3bc4e9fab58b6
 _BOOKINGS_FILE = os.path.join(_DATA_DIR, "bookings.json")
 class BookingStore:
     """Хранилище записей с файловой персистентностью."""

@@ -145,9 +145,30 @@ class DataStore:
         return None
 
     def detect_symptom(self, message: str) -> Optional[Dict]:
+        """Найти услугу по симптому. МРТ имеет приоритет над другими услугами."""
         msg_lower = message.lower()
+        
+        # Приоритетные симптомы для МРТ
+        mrt_priorities = ["головная боль", "мигрень", "болит голова", "голова болит", 
+                          "болит поясница", "спина болит", "боль в спине", "болит шея", "шея болит"]
+        
+        # Сначала проверяем приоритетные симптомы для МРТ
+        for symptom in mrt_priorities:
+            if symptom in msg_lower:
+                if symptom in self._symptom_map:
+                    svc = self._symptom_map[symptom]
+                    if svc["type"] == "mrt":
+                        return svc
+        
+        # Затем проверяем остальные симптомы
         for symptom, svc in self._symptom_map.items():
             if symptom in msg_lower:
+                # Пропускаем не-MRT услуги если есть более подходящие MRT симптомы
+                if svc["type"] != "mrt":
+                    # Проверяем, нет ли более подходящего MRT симптома
+                    has_mrt_symptom = any(s in msg_lower for s in mrt_priorities if s in self._symptom_map and self._symptom_map[s]["type"] == "mrt")
+                    if has_mrt_symptom:
+                        continue
                 return svc
         return None
 
@@ -202,3 +223,12 @@ def detect_symptom(message: str) -> Optional[Dict]:
 
 def check_operator_transfer(message: str) -> bool:
     return _data_store.check_operator_transfer(message)
+
+
+# Экспортируем для использования в bot_logic_v2
+__all__ = [
+    'get_services', 'get_complexes', 'get_doctors', 'get_promotions',
+    'get_clinic', 'get_operator_keywords', 'get_service_by_keyword',
+    'find_complex_for_service', 'detect_doctor', 'detect_symptom',
+    'check_operator_transfer', '_data_store',
+]
