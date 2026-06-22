@@ -108,12 +108,23 @@ async function connectToWhatsApp() {
         }
         if (connection === 'close') {
             const reason = new boom_1.Boom(lastDisconnect?.error)?.output?.statusCode;
+            // Не переподключаемся при 440 (Session Timeout) — нужно сканировать QR заново
+            if (reason === 440) {
+                console.log('❌ Сессия устарела (440). Удалите папку auth_info и отсканируйте QR заново.');
+                console.log('💡 Команда: rm -rf auth_info && npm start');
+                // Не вызываем connectToWhatsApp() — ждём пока пользователь сам перезапустит
+                return;
+            }
             if (reason === baileys_1.DisconnectReason.connectionClosed) {
                 console.log('🔄 Переподключение...');
                 connectToWhatsApp();
             }
+            else if (reason === 515) {
+                console.log('❌ QR-код истёк. Переподключение...');
+                connectToWhatsApp();
+            }
             else {
-                console.log(`❌ Отключено по причине: ${reason}. Переподключение...`);
+                console.log(`🔄 Переподключение (причина: ${reason})...`);
                 connectToWhatsApp();
             }
         }
@@ -155,9 +166,12 @@ async function connectToWhatsApp() {
         }
         catch (error) {
             console.error('Error processing message:', error.message);
-            await sock.sendMessage(sessionId, {
-                text: '❌ Ошибка обработки. Попробуйте позже или позвоните: +7 777 123 45 67'
-            });
+            // Не пытаемся отправить ошибку если соединение закрыто
+            if (error.message !== 'Connection Closed') {
+                await sock.sendMessage(sessionId, {
+                    text: '❌ Ошибка обработки. Попробуйте позже или позвоните: +7 777 123 45 67'
+                });
+            }
         }
     });
 }

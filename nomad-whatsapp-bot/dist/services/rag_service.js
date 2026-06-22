@@ -40,6 +40,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.RAGService = void 0;
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
+const google_sheets_service_1 = require("./google_sheets_service");
 class RAGService {
     constructor(ollamaUrl, dataDir) {
         this.documents = [];
@@ -48,6 +49,7 @@ class RAGService {
         // Состояния бронирования
         this.bookingStates = new Map();
         this.bookings = [];
+        this.googleSheetsEnabled = false;
         /**
          * История чата (простая)
          */
@@ -55,6 +57,18 @@ class RAGService {
         this.dataDir = dataDir;
         this.ollamaUrl = (ollamaUrl || 'http://localhost:11434').replace(/\/$/, '');
         this.hasOllama = !!ollamaUrl;
+        // Инициализация Google Sheets
+        this.initGoogleSheets();
+    }
+    async initGoogleSheets() {
+        const enabled = process.env.GOOGLE_SHEETS_ENABLED === 'true';
+        if (enabled) {
+            const initialized = await google_sheets_service_1.sheetsService.initialize();
+            this.googleSheetsEnabled = initialized;
+            if (initialized) {
+                await google_sheets_service_1.sheetsService.createHeaders();
+            }
+        }
     }
     /**
      * Загрузка документов из JSON файлов
@@ -122,7 +136,7 @@ class RAGService {
         // 5. Проверка состояния бронирования
         const bookingState = this.bookingStates.get(sessionId);
         if (bookingState && bookingState.step !== 'greeting') {
-            return this.handleBookingFlow(sessionId, bookingState, text, lowerText);
+            return await this.handleBookingFlow(sessionId, bookingState, text, lowerText);
         }
         // 6. Приветствия (рус + каз + ен)
         const greetingWords = ['привет', 'здравствуй', 'здравствуйте', 'добрый', 'hello', 'hi', 'хай', 'сәлем', 'сәлемет', 'салем', 'қайырлы', 'добр', 'прив', 'хайю', 'йоу'];
@@ -176,7 +190,7 @@ class RAGService {
     /**
      * Обработка потока бронирования
      */
-    handleBookingFlow(sessionId, state, text, lowerText) {
+    async handleBookingFlow(sessionId, state, text, lowerText) {
         switch (state.step) {
             case 'collecting_name':
                 state.patientData.name = text.trim();
@@ -269,14 +283,25 @@ class RAGService {
             case 'confirming':
                 if (['да', 'подтверждаю', 'ок', 'yes'].some(k => lowerText.includes(k))) {
                     // Сохраняем бронирование
-                    this.bookings.push({
-                        ...state.patientData,
-                        ...state.appointmentData,
-                        id: `BK${Date.now()}`,
-                        created: new Date().toISOString()
-                    });
+                    const bookingId = `BK${Date.now()}`;
+                    const booking = {
+                        id: bookingId,
+                        patient_name: state.patientData.name,
+                        phone: state.patientData.phone,
+                        age: state.patientData.age,
+                        service_name: state.appointmentData.service,
+                        date: state.appointmentData.date,
+                        time: state.appointmentData.time,
+                        created_at: new Date().toISOString(),
+                        status: 'confirmed',
+                    };
+                    this.bookings.push(booking);
+                    // Сохраняем в Google Sheets (если включено)
+                    if (this.googleSheetsEnabled) {
+                        await google_sheets_service_1.sheetsService.addBooking(booking);
+                    }
                     this.bookingStates.delete(sessionId);
-                    return `✅ Запись подтверждена!\n\n📋 Номер записи: ${this.bookings[this.bookings.length - 1].id}\n📞 Приходите за 10 минут до записи.\n\nОжидаем Вас в клинике!`;
+                    return `✅ Запись подтверждена!\n\n📋 Номер записи: ${bookingId}\n📞 Приходите за 10 минут до записи.\n\nОжидаем Вас в клинике!`;
                 }
                 else {
                     state.step = 'collecting_date';
@@ -315,19 +340,50 @@ class RAGService {
     findServiceByKeyword(text) {
         const services = this.loadServices();
         const allServices = services?.services || [];
-        // Сначала ищем в keywords
+        const textLower = text.toLowerCase();
+        // 1. Сначала ищем точное совпадение по названию
         for (const service of allServices) {
-            const keywords = service.keywords || [];
-            for (const kw of keywords) {
-                if (text.toLowerCase().includes(kw.toLowerCase())) {
-                    return service;
+            if (service.name.toLowerCase() === textLower) {
+                return service;
+            }
+        }
+        // 2. Ищем по полному вхождению названия в текст
+        for (const service of allServices) {
+            if (textLower.includes(service.name.toLowerCase())) {
+                return service;
+            }
+        }
+        // 3. Ищем по ключевым словам с приоритетом типа
+        // Определяем тип услуги из запроса
+        const isUzi = textLower.includes('узи') || textLower.includes('ультразвук');
+        const isMrt = textLower.includes('мрт') || textLower.includes('магнитно');
+        const isCt = textLower.includes('кт') || textLower.includes('компьютерная томография');
+        const isXray = textLower.includes('рентген') || textLower.includes('xray');
+        const desiredType = isUzi ? 'uzi' : isMrt ? 'mrt' : isCt ? 'ct' : isXray ? 'xray' : null;
+        // Сначала ищем в услугах нужного типа
+        if (desiredType) {
+            for (const service of allServices) {
+                if (service.type === desiredType) {
+                    const keywords = service.keywords || [];
+                    for (const kw of keywords) {
+                        if (textLower.includes(kw.toLowerCase())) {
+                            return service;
+                        }
+                    }
+                    // Проверяем название
+                    if (textLower.includes(service.name.toLowerCase())) {
+                        return service;
+                    }
                 }
             }
         }
-        // Затем ищем по названию
+        // 4. Если не нашли по типу — ищем во всех услугах
         for (const service of allServices) {
-            if (text.toLowerCase().includes(service.name.toLowerCase())) {
-                return service;
+            const keywords = service.keywords || [];
+            for (const kw of keywords) {
+                if (textLower.includes(kw.toLowerCase())) {
+                    return service;
+                }
             }
         }
         return null;

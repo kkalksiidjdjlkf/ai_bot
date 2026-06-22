@@ -5,6 +5,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { sheetsService } from './google_sheets_service';
 
 interface Document {
   id: string;
@@ -16,6 +17,18 @@ interface BookingState {
   step: string;
   patientData: any;
   appointmentData: any;
+}
+
+interface BookingRecord {
+  id: string;
+  patient_name: string;
+  phone: string;
+  age: number;
+  service_name: string;
+  date: string;
+  time: string;
+  created_at: string;
+  status: string;
 }
 
 interface OllamaResponse {
@@ -33,11 +46,26 @@ export class RAGService {
   // Состояния бронирования
   private bookingStates: Map<string, BookingState> = new Map();
   private bookings: any[] = [];
+  private googleSheetsEnabled: boolean = false;
 
   constructor(ollamaUrl: string, dataDir: string) {
     this.dataDir = dataDir;
     this.ollamaUrl = (ollamaUrl || 'http://localhost:11434').replace(/\/$/, '');
     this.hasOllama = !!ollamaUrl;
+    
+    // Инициализация Google Sheets
+    this.initGoogleSheets();
+  }
+
+  private async initGoogleSheets(): Promise<void> {
+    const enabled = process.env.GOOGLE_SHEETS_ENABLED === 'true';
+    if (enabled) {
+      const initialized = await sheetsService.initialize();
+      this.googleSheetsEnabled = initialized;
+      if (initialized) {
+        await sheetsService.createHeaders();
+      }
+    }
   }
 
   /**
@@ -118,7 +146,7 @@ export class RAGService {
     // 5. Проверка состояния бронирования
     const bookingState = this.bookingStates.get(sessionId);
     if (bookingState && bookingState.step !== 'greeting') {
-      return this.handleBookingFlow(sessionId, bookingState, text, lowerText);
+      return await this.handleBookingFlow(sessionId, bookingState, text, lowerText);
     }
 
     // 6. Приветствия (рус + каз + ен)
@@ -185,7 +213,7 @@ export class RAGService {
   /**
    * Обработка потока бронирования
    */
-  private handleBookingFlow(sessionId: string, state: BookingState, text: string, lowerText: string): string {
+  private async handleBookingFlow(sessionId: string, state: BookingState, text: string, lowerText: string): Promise<string> {
     switch (state.step) {
       case 'collecting_name':
         state.patientData.name = text.trim();
@@ -295,15 +323,28 @@ export class RAGService {
       case 'confirming':
         if (['да', 'подтверждаю', 'ок', 'yes'].some(k => lowerText.includes(k))) {
           // Сохраняем бронирование
-          this.bookings.push({
-            ...state.patientData,
-            ...state.appointmentData,
-            id: `BK${Date.now()}`,
-            created: new Date().toISOString()
-          });
+          const bookingId = `BK${Date.now()}`;
+          const booking: BookingRecord = {
+            id: bookingId,
+            patient_name: state.patientData.name,
+            phone: state.patientData.phone,
+            age: state.patientData.age,
+            service_name: state.appointmentData.service,
+            date: state.appointmentData.date,
+            time: state.appointmentData.time,
+            created_at: new Date().toISOString(),
+            status: 'confirmed',
+          };
+          
+          this.bookings.push(booking);
+          
+          // Сохраняем в Google Sheets (если включено)
+          if (this.googleSheetsEnabled) {
+            await sheetsService.addBooking(booking);
+          }
           
           this.bookingStates.delete(sessionId);
-          return `✅ Запись подтверждена!\n\n📋 Номер записи: ${this.bookings[this.bookings.length - 1].id}\n📞 Приходите за 10 минут до записи.\n\nОжидаем Вас в клинике!`;
+          return `✅ Запись подтверждена!\n\n📋 Номер записи: ${bookingId}\n📞 Приходите за 10 минут до записи.\n\nОжидаем Вас в клинике!`;
         } else {
           state.step = 'collecting_date';
           return "Хорошо, давайте выберем другую дату.";
@@ -346,20 +387,56 @@ export class RAGService {
     const services = this.loadServices();
     const allServices = services?.services || [];
     
-    // Сначала ищем в keywords
+    const textLower = text.toLowerCase();
+    
+    // 1. Сначала ищем точное совпадение по названию
     for (const service of allServices) {
-      const keywords = service.keywords || [];
-      for (const kw of keywords) {
-        if (text.toLowerCase().includes(kw.toLowerCase())) {
-          return service;
+      if (service.name.toLowerCase() === textLower) {
+        return service;
+      }
+    }
+    
+    // 2. Ищем по полному вхождению названия в текст
+    for (const service of allServices) {
+      if (textLower.includes(service.name.toLowerCase())) {
+        return service;
+      }
+    }
+    
+    // 3. Ищем по ключевым словам с приоритетом типа
+    // Определяем тип услуги из запроса
+    const isUzi = textLower.includes('узи') || textLower.includes('ультразвук');
+    const isMrt = textLower.includes('мрт') || textLower.includes('магнитно');
+    const isCt = textLower.includes('кт') || textLower.includes('компьютерная томография');
+    const isXray = textLower.includes('рентген') || textLower.includes('xray');
+    
+    const desiredType = isUzi ? 'uzi' : isMrt ? 'mrt' : isCt ? 'ct' : isXray ? 'xray' : null;
+    
+    // Сначала ищем в услугах нужного типа
+    if (desiredType) {
+      for (const service of allServices) {
+        if (service.type === desiredType) {
+          const keywords = service.keywords || [];
+          for (const kw of keywords) {
+            if (textLower.includes(kw.toLowerCase())) {
+              return service;
+            }
+          }
+          // Проверяем название
+          if (textLower.includes(service.name.toLowerCase())) {
+            return service;
+          }
         }
       }
     }
     
-    // Затем ищем по названию
+    // 4. Если не нашли по типу — ищем во всех услугах
     for (const service of allServices) {
-      if (text.toLowerCase().includes(service.name.toLowerCase())) {
-        return service;
+      const keywords = service.keywords || [];
+      for (const kw of keywords) {
+        if (textLower.includes(kw.toLowerCase())) {
+          return service;
+        }
       }
     }
     
