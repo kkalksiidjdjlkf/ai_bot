@@ -1,7 +1,12 @@
-dialogs.log
-__pycache__/
 .env
-bot.log
-dialogs.log
+.env.local
+*.log
 __pycache__/
 *.pyc
+node_modules/
+google-credentials.json
+auth_info/
+data/bookings.json
+nomad-whatsapp-bot/node_modules/
+nomad-whatsapp-bot/.env
+ai_bot-github/
