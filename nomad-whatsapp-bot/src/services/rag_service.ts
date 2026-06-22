@@ -454,34 +454,40 @@ private getMedicalDisclaimer(): string {
     return null;
   }
 
-  /**
-   * Обработка запроса услуги
-   */
-  private handleServiceInquiry(service: any, sessionId: string): string {
-    let response = `📋 ${service.name}\n`;
-    response += `💰 Цена: ${this.formatPrice(service.price)} тг\n`;
-    response += `⏱ Длительность: ${service.duration}\n`;
-    
-    // Проверка на комплексы
-    const servicesData = this.loadServices();
-    const complexes = servicesData?.complexes || [];
-    const complex = complexes.find((c: any) => c.service_ids?.includes(service.id));
-    
-    if (complex) {
-      const allServicesList = servicesData?.services || [];
-      const original = complex.service_ids.reduce((acc: number, id: string) => {
-        const s = allServicesList.find((x: any) => x.id === id);
-        return acc + (s?.price || 0);
-      }, 0);
-      const discounted = Math.round(original * (1 - complex.discount_percent / 100));
-      response += `\n🎁 Рекомендуем комплекс "${complex.name}" со скидкой ${complex.discount_percent}% за ${this.formatPrice(discounted)} тг.`;
-    }
-    
-    // Начинаем бронирование
-    this.startBookingWithService(sessionId, service.name);
-    
-    return response + "\n\nДля записи напишите 'да' или 'хочу записаться'.";
+ /**
+ * Обработка запроса услуги
+ */
+private handleServiceInquiry(service: any, sessionId: string): string {
+  let response = `📋 ${service.name}\n`;
+  response += `💰 Цена: ${this.formatPrice(service.price)} тг\n`;
+  response += `⏱ Длительность: ${service.duration}\n`;
+
+  // Проверка на комплексы
+  const servicesData = this.loadServices();
+  const complexes = servicesData?.complexes || [];
+  const complex = complexes.find((c: any) => c.service_ids?.includes(service.id));
+
+  if (complex) {
+    const allServicesList = servicesData?.services || [];
+    const original = complex.service_ids.reduce((acc: number, id: string) => {
+      const s = allServicesList.find((x: any) => x.id === id);
+      return acc + (s?.price || 0);
+    }, 0);
+
+    const discounted = Math.round(original * (1 - complex.discount_percent / 100));
+    response += `\n🎁 Рекомендуем комплекс "${complex.name}" со скидкой ${complex.discount_percent}% за ${this.formatPrice(discounted)} тг.`;
   }
+
+  // Сразу начинаем запись
+  this.startBookingWithService(sessionId, service.name);
+
+  return response + `
+
+Могу помочь записать Вас на это исследование.
+Подскажите, пожалуйста, Ваше имя и фамилию.
+
+Если запись не нужна, напишите "нет".`;
+}
 
   /**
    * Список МРТ
