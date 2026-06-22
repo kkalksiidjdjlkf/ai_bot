@@ -1,2 +1,7 @@
 dialogs.log
 __pycache__/
+.env
+bot.log
+dialogs.log
+__pycache__/
+*.pyc
