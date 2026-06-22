@@ -1,0 +1,13 @@
+node_modules/
+dist/
+.env
+.env.local
+*.json
+!package.json
+!tsconfig.json
+google-credentials.json
+auth_info/
+*.log
+*_key.json
+*key*.json
+google-*.json

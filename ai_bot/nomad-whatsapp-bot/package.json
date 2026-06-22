@@ -1,0 +1,28 @@
+{
+  "name": "nomad-whatsapp-bot",
+  "version": "1.0.0",
+  "description": "WhatsApp Bot for Nomad Clinic using Baileys",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "qr": "node dist/qr_simple.js",
+    "qr:dev": "ts-node src/qr_simple.ts",
+    "test": "ts-node test_rag.ts",
+    "test:integration": "ts-node test_integration.ts",
+    "model:install": "ollama pull llama3.1:8b"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "^7.0.0-rc13",
+    "dotenv": "^17.4.2",
+    "googleapis": "^144.0.0",
+    "pino": "^8.16.0",
+    "qrcode-terminal": "^0.12.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.43",
+    "@types/qrcode-terminal": "^0.12.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.0.0"
+  }
+}
