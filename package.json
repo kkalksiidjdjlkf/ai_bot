@@ -1,0 +1,50 @@
+{
+<<<<<<< HEAD
+  "name": "nomad-clinic-bots",
+  "version": "1.0.0",
+  "description": "Nomad Clinic — WhatsApp + Terminal bots (единый запуск)",
+  "scripts": {
+    "start": "npx pm2 start ecosystem.config.js",
+    "stop": "npx pm2 stop ecosystem.config.js",
+    "restart": "npx pm2 restart ecosystem.config.js",
+    "logs": "npx pm2 logs",
+    "start:whatsapp": "cd nomad-whatsapp-bot && npm run build && npm start",
+    "start:terminal": "python terminal_bot.py",
+    "start:calendar": "python calendar_view.py --interactive",
+    "build": "cd nomad-whatsapp-bot && npm run build",
+    "test": "python test_bot.py",
+    "model:install": "cd nomad-whatsapp-bot && npm run model:install"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+=======
+  "name": "nomad-whatsapp-bot",
+  "version": "1.0.0",
+  "description": "WhatsApp Bot for Nomad Clinic using Baileys",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "bash scripts/run-forever.sh",
+    "start:once": "node dist/index.js",
+    "qr": "node dist/qr_simple.js",
+    "qr:dev": "ts-node src/qr_simple.ts",
+    "test": "ts-node test_rag.ts",
+    "test:integration": "ts-node test_integration.ts",
+    "model:install": "ollama pull llama3.1:8b"
+  },
+  "dependencies": {
+    "@hapi/boom": "^10.0.1",
+    "@whiskeysockets/baileys": "^7.0.0-rc13",
+    "dotenv": "^17.4.2",
+    "googleapis": "^144.0.0",
+    "pino": "^8.16.0",
+    "qrcode-terminal": "^0.12.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.43",
+    "@types/qrcode-terminal": "^0.12.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.0.0"
+>>>>>>> 786a475b3a8f9a770012696d2fde67960925fa24
+  }
+}
